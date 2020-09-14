@@ -1,0 +1,9 @@
+__pycache__
+.eggs
+build
+dist
+*.egg-info
+data
+.idea
+*.h5
+*.pth
