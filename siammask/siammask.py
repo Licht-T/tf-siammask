@@ -95,10 +95,10 @@ class SiamMask:
         self.mask_refinement_model.load_weights(mask_refinement_model_fp)
 
     def predict(self, img: np.ndarray, box: np.ndarray):
-        box_wh = box[1] - box[0]
-        box_center = box.mean(0)
+        box_wh = (box[1] - box[0]).astype(np.int64)
+        box_center = box.mean(0).astype(np.int64)
 
-        exampler_box_size = box_wh.max()
+        exampler_box_size = np.array([box_wh.max(), box_wh.max()], dtype=np.int64)
         search_box_size = 2 * exampler_box_size
 
         exampler_box = np.array([box_center - exampler_box_size/2, box_center + exampler_box_size/2], dtype=np.int64)
@@ -107,12 +107,15 @@ class SiamMask:
         im = PIL.Image.fromarray(img[..., ::-1])
 
         scale = search_box_size / 255
+        box_ratio = box_wh[0] / box_wh[1]
+        box_area = np.sqrt(box_wh[0] * box_wh[1]) / scale[0]
+
         im_exampler = im.crop(exampler_box.flatten().tolist()).resize((127, 127))
         im_search = im.crop(search_box.flatten().tolist()).resize((255, 255))
         exampler = np.array(im_exampler)[..., ::-1]
         search = np.array(im_search)[..., ::-1]
 
-        predicted_box, _, predicted_mask = self._predict(exampler, search)
+        predicted_box, _, predicted_mask = self._predict(exampler, search, box_ratio, box_area)
 
         predicted_box = scale * predicted_box + box_center[np.newaxis, ...]
         predicted_box = predicted_box.astype(np.int64)
@@ -120,16 +123,17 @@ class SiamMask:
         predicted_mask[predicted_mask >= self.mask_threshold] = 255
         predicted_mask[predicted_mask < self.mask_threshold] = 0
 
-        im_predicted_mask = PIL.Image.fromarray(predicted_mask).resize((exampler_box_size, exampler_box_size))
-        im_predicted_mask.convert('RGB').save('data/tmp1.png')
+        im_predicted_mask = PIL.Image.fromarray(predicted_mask).resize((*exampler_box_size,))
+        #im_predicted_mask.convert('RGB').save('data/tmp1.png')
 
         im_mask = PIL.Image.new('L', im.size)
-        im_mask.paste(im_predicted_mask, tuple((predicted_box.mean(axis=0) - 63.5 * scale).astype(np.int64)))
-        im_mask.convert('RGB').save('data/tmp.png')
+        # FIXME: Box回帰ずみのものをつかわないようにする
+        im_mask.paste(im_predicted_mask, (*(predicted_box.mean(axis=0) - 63.5 * scale).astype(np.int64),))
+        #im_mask.convert('RGB').save('data/tmp.png')
 
         return predicted_box, np.array(im_mask)
 
-    def _predict(self, exampler: np.ndarray, search: np.ndarray):
+    def _predict(self, exampler: np.ndarray, search: np.ndarray, prev_box_ratio, prev_box_area):
         exampler = exampler[np.newaxis, ...].astype(np.float32)
         search = search[np.newaxis, ...].astype(np.float32)
         scores, boxes, masks, mask_features, residuals = self.base_model([exampler, search], 1)
