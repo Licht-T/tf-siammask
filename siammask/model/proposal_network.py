@@ -41,11 +41,10 @@ class ProposalNetwork(tf.keras.Model):
         kernel = self.exampler_adjuster(exampler_features)
         search_features = self.search_adjuster(search_features)
 
-        # TODO: ???
         batch_size = tf.shape(kernel)[0]
-        kernel_h = 5
-        kernel_w = 5
-        channel_size = 256
+        kernel_h = 5  # == tf.shape(kernel)[1]
+        kernel_w = 5  # == tf.shape(kernel)[2]
+        channel_size = 256  # == tf.shape(kernel)[3]
 
         image_patches = tf.image.extract_patches(
             search_features,

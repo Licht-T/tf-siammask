@@ -25,9 +25,9 @@ from .resnet import CustomResNet50
 from .proposal_network import ProposalNetwork
 
 
-class Prediction(tf.keras.Model):
-    def __init__(self, num_anchors, kernel_cut_off_size):
-        super(Prediction, self).__init__()
+class BaseNet(tf.keras.Model):
+    def __init__(self, num_anchors: int, mask_pixels: int, kernel_cut_off_size: int):
+        super(BaseNet, self).__init__()
 
         self.num_anchors = num_anchors
         self.cut_off = kernel_cut_off_size // 2
@@ -36,14 +36,14 @@ class Prediction(tf.keras.Model):
 
         self.score_proposal = ProposalNetwork(2 * self.num_anchors)
         self.box_proposal = ProposalNetwork(4 * self.num_anchors)
-        self.mask_proposal = ProposalNetwork(63 * 63)
+        self.mask_proposal = ProposalNetwork(mask_pixels * mask_pixels)
 
     def call(self, inputs, training=None, mask=None):
         exampler, search = inputs
 
-        exampler_features, res3, res2, res1 = self.resnet(exampler)
+        exampler_features, _, _, _ = self.resnet(exampler)
         exampler_features = exampler_features[:, self.cut_off:-self.cut_off, self.cut_off:-self.cut_off, :]
-        search_features, _, _, _ = self.resnet(search)
+        search_features, res3, res2, res1 = self.resnet(search)
 
         scores, _ = self.score_proposal([exampler_features, search_features])
         boxes, _ = self.box_proposal([exampler_features, search_features])
@@ -64,4 +64,4 @@ class Prediction(tf.keras.Model):
         xy = boxes[..., :2]
         wh = tf.keras.backend.exp(boxes[..., 2:])
 
-        return [scores, tf.concat([xy, wh], -1), masks]
+        return [scores, tf.concat([xy, wh], -1), tf.sigmoid(masks), mask_features, [res3, res2, res1]]
