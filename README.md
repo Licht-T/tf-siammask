@@ -21,10 +21,14 @@ img = np.array(PIL.Image.open('data/cat.jpg'))[..., ::-1]
 box, mask = sm.predict(img, np.array([[214, 61], [315, 196]]), debug=True)
 ```
 
-### `data/cat.jpg`
-![cat](./data/cat.jpg)
+### Test data
 
-### Predicted mask for the image
+| |  Previous frame  |  Next frame |
+| ---- | ---- | ---- |
+| File name | `./data/cat1_with_box.jpg` | `./data/cat2.jpg` |
+| Image |  ![cat](./data/cat1_with_box.jpg)  |  ![cat](./data/cat2.jpg)  |
+
+### Predicted mask for `./data/cat2.jpg`
 ![mask](./data/predicted_mask.png)
 
 ## TODO

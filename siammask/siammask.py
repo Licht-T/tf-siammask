@@ -114,12 +114,18 @@ class SiamMask:
 
         self.mask_refinement_model.load_weights(mask_refinement_model_fp)
 
-    def predict(self, img: np.ndarray, box: np.ndarray, debug=False):
+    def predict(self, img_prev: np.ndarray, box: np.ndarray, img_next=None, debug=False):
         """
-        :param img: (H, W, 3)-shape BGR image (np.ndarray).
-        :param box: (2, 2)-shape np.ndarray which contains upper-left and lower-right positions of the bounding box.
-        :param debug: If True, generates predicted mask and box images into the current directory.
-        :return: A tuple of predicted bounding box ((2,2)-shape np.ndarray) and mask image ((H, W)-shape np.ndarray).
+        :param img_prev: (H, W, 3)-shape BGR image (`np.uint8` `np.ndarray`).
+                         The boxed image by `box` is utilized as an exampler image.
+        :param box:      Upper-left xy and lower-right xy of bounding box ((2, 2)-shape `float` `np.ndarray`)
+                         in `img_prev`.
+        :param img_next: (H, W, 3)-shape BGR image (`np.uint8` `np.ndarray`).
+                         The image around/inside `box` is utilized as an search image.
+                         If None, img_next == img_prev.
+        :param debug:    If True, generates predicted mask and box images into the current directory.
+        :return:         A tuple of predicted bounding box ((2,2)-shape np.ndarray)
+                         and mask image ((H, W)-shape np.ndarray) for img_next.
         """
         box_wh = (box[1] - box[0]).astype(np.int64)
         box_center = box.mean(0).astype(np.int64)
@@ -130,41 +136,43 @@ class SiamMask:
         exampler_box = np.array([box_center - exampler_box_size/2, box_center + exampler_box_size/2], dtype=np.int64)
         search_box = np.array([box_center - exampler_box_size, box_center + exampler_box_size], dtype=np.int64)
 
-        im = PIL.Image.fromarray(img[..., ::-1])
+        im_prev = PIL.Image.fromarray(img_prev[..., ::-1])
+        im_next = im_prev
+        if img_next is not None:
+            im_next = PIL.Image.fromarray(img_next[..., ::-1]).resize(im_prev.size)
 
         scale = exampler_box_size / self.exampler_size
         box_ratio = box_wh[0] / box_wh[1]
         box_area = np.sqrt(box_wh[0] * box_wh[1] / (scale[0] * scale[1]))
 
-        im_exampler = im.crop(exampler_box.flatten().tolist()).resize((self.exampler_size, self.exampler_size))
-        im_search = im.crop(search_box.flatten().tolist()).resize((self.search_size, self.search_size))
+        im_exampler = im_prev.crop(exampler_box.flatten().tolist()).resize((self.exampler_size, self.exampler_size))
+        im_search = im_next.crop(search_box.flatten().tolist()).resize((self.search_size, self.search_size))
         exampler = np.array(im_exampler)[..., ::-1]
         search = np.array(im_search)[..., ::-1]
 
-        predicted_box, _, predicted_mask = self._predict(exampler, search, box_ratio, box_area)
+        predicted_anchor_xy, predicted_box, _, predicted_mask = self._predict(exampler, search, box_ratio, box_area)
 
+        predicted_anchor_xy = scale * predicted_anchor_xy + box_center
         predicted_box = scale[np.newaxis, ...] * predicted_box + box_center[np.newaxis, ...]
-        predicted_box = predicted_box.astype(np.int64)
 
         # predicted_mask[predicted_mask >= self.mask_threshold] = 255
         # predicted_mask[predicted_mask < self.mask_threshold] = 0
 
         im_predicted_mask = PIL.Image.fromarray(predicted_mask).resize((*exampler_box_size,))
 
-        im_mask = PIL.Image.new('L', im.size)
-        # FIXME: Box回帰ずみのものをつかわないようにする
+        im_mask = PIL.Image.new('L', im_next.size)
         im_mask.paste(
             im_predicted_mask,
-            (*(predicted_box.mean(axis=0) - self.exampler_size * scale / 2).astype(np.int64),)
+            (*(predicted_anchor_xy - self.exampler_size * scale / 2).astype(np.int64),)
         )
 
         if debug:
             im_exampler.convert('RGB').save('exampler.png')
             im_search.convert('RGB').save('search.png')
 
-            draw = PIL.ImageDraw.Draw(im)
-            draw.rectangle((*predicted_box.flatten(),))
-            im.save('predicted_box.png')
+            draw = PIL.ImageDraw.Draw(im_next)
+            draw.rectangle((*predicted_box.flatten().astype(np.int64),))
+            im_next.save('predicted_box.png')
 
             im_predicted_mask.convert('RGB').save('predicted_mask_patch.png')
             im_mask.convert('RGB').save('predicted_mask.png')
@@ -220,4 +228,4 @@ class SiamMask:
         refined_mask = np.squeeze(self.mask_refinement_model(mask_refinement_inputs).numpy())
         refined_mask = np.clip(255 * refined_mask, 0, 255).astype(np.uint8)
 
-        return box, mask, refined_mask
+        return self.anchors[box_idx][:2], box, mask, refined_mask
