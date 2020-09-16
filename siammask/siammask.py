@@ -115,6 +115,12 @@ class SiamMask:
         self.mask_refinement_model.load_weights(mask_refinement_model_fp)
 
     def predict(self, img: np.ndarray, box: np.ndarray, debug=False):
+        """
+        :param img: (H, W, 3)-shape BGR image (np.ndarray).
+        :param box: (2, 2)-shape np.ndarray which contains upper-left and lower-right positions of the bounding box.
+        :param debug: If True, generates predicted mask and box images into the current directory.
+        :return: A tuple of predicted bounding box ((2,2)-shape np.ndarray) and mask image ((H, W)-shape np.ndarray).
+        """
         box_wh = (box[1] - box[0]).astype(np.int64)
         box_center = box.mean(0).astype(np.int64)
 
