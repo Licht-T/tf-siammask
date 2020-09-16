@@ -136,7 +136,7 @@ class SiamMask:
     def _predict(self, exampler: np.ndarray, search: np.ndarray, prev_box_ratio, prev_box_area):
         exampler = exampler[np.newaxis, ...].astype(np.float32)
         search = search[np.newaxis, ...].astype(np.float32)
-        scores, boxes, masks, mask_features, residuals = self.base_model([exampler, search], 1)
+        scores, boxes, masks, mask_features, residuals = self.base_model([exampler, search])
 
         scores = np.squeeze(scores.numpy())
         boxes = np.squeeze(boxes.numpy())
@@ -168,7 +168,7 @@ class SiamMask:
             residual = tf.pad(residual, [[0, 0], [pad, pad], [pad, pad], [0, 0]], 'CONSTANT')
             mask_refinement_inputs.append(residual[:, frm_h:to_h, frm_w:to_w, :])
 
-        refined_mask = np.squeeze(self.mask_refinement_model(mask_refinement_inputs, 1).numpy())
+        refined_mask = np.squeeze(self.mask_refinement_model(mask_refinement_inputs).numpy())
         refined_mask = np.clip(255 * refined_mask, 0, 255).astype(np.uint8)
 
         return box, mask, refined_mask
