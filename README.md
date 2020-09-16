@@ -15,10 +15,12 @@ sm.load_weights()
 # Adjust this parameter for the better mask prediction
 sm.box_offset_ratio = 1.5
 
-img = np.array(PIL.Image.open('data/cat.jpg'))[..., ::-1]
+img_prev = np.array(PIL.Image.open('data/cat1.jpg'))[..., ::-1]
+box_prev = np.array([[227, 184], [381, 274]])
+img_next = np.array(PIL.Image.open('data/cat2.jpg'))[..., ::-1]
 
 # Predicted box and mask images is created if `debug=True`
-box, mask = sm.predict(img, np.array([[214, 61], [315, 196]]), debug=True)
+box, mask = sm.predict(img_prev, box_prev, img_next, debug=True)
 ```
 
 ### Test data
