@@ -37,6 +37,7 @@ class SiamMask:
         self.anchor_box_ratios = np.array([0.33, 0.5, 1, 2, 3])
         self.anchor_box_scales = np.array([8])
 
+        self.box_offset_ratio = 1.1
         self.exampler_size = 127
         self.search_size = 255
 
@@ -44,7 +45,8 @@ class SiamMask:
 
         self.kernel_cut_off_size = 8
 
-        self.mask_threshold = 10
+        self.mask_threshold = 10  # unused
+        self.penalty_coefficient = 0.04
 
         self.num_anchors = None
         self.output_wh_size = None
@@ -99,7 +101,8 @@ class SiamMask:
         box_wh = (box[1] - box[0]).astype(np.int64)
         box_center = box.mean(0).astype(np.int64)
 
-        exampler_box_size = np.array([box_wh.max() * 1.1, box_wh.max() * 1.1], dtype=np.int64)
+        exampler_box_size = self.box_offset_ratio * np.array([box_wh.max(), box_wh.max()])
+        exampler_box_size = exampler_box_size.astype(np.int64)
 
         exampler_box = np.array([box_center - exampler_box_size/2, box_center + exampler_box_size/2], dtype=np.int64)
         search_box = np.array([box_center - exampler_box_size, box_center + exampler_box_size], dtype=np.int64)
@@ -166,7 +169,9 @@ class SiamMask:
         def diff(r):
             return np.maximum(r, 1. / r)
 
-        penalty = np.exp(-(diff(box_ratios / prev_box_ratio) * diff(box_areas / prev_box_area) - 1) * 0.04)
+        penalty = np.exp(
+            - self.penalty_coefficient * (diff(box_ratios / prev_box_ratio) * diff(box_areas / prev_box_area) - 1)
+        )
 
         box_idx = np.unravel_index((scores * penalty).argmax(), boxes.shape[:-1])
         idx = box_idx[:2]
