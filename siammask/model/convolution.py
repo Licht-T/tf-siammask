@@ -35,7 +35,7 @@ class Conv2DWithBatchNorm(tf.keras.layers.Conv2D):
             padding=padding, dilation_rate=dilation_rate, use_bias=False,
             kernel_initializer='he_normal'
         )
-        self.bn = tf.keras.layers.BatchNormalization()
+        self.bn = tf.keras.layers.BatchNormalization(momentum=0.9, epsilon=1e-5)
 
     def call(self, x, **kwargs):
         return self.bn(super(Conv2DWithBatchNorm, self).call(x))

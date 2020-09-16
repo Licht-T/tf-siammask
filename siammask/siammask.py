@@ -24,6 +24,7 @@ import itertools
 import tensorflow as tf
 import numpy as np
 import PIL.Image
+import PIL.ImageDraw
 
 from .model import BaseNet, MaskRefinementNet
 
@@ -43,7 +44,7 @@ class SiamMask:
 
         self.kernel_cut_off_size = 8
 
-        self.mask_threshold = 100
+        self.mask_threshold = 10
 
         self.num_anchors = None
         self.output_wh_size = None
@@ -94,42 +95,53 @@ class SiamMask:
         self.base_model.load_weights(base_model_fp)
         self.mask_refinement_model.load_weights(mask_refinement_model_fp)
 
-    def predict(self, img: np.ndarray, box: np.ndarray):
+    def predict(self, img: np.ndarray, box: np.ndarray, debug=False):
         box_wh = (box[1] - box[0]).astype(np.int64)
         box_center = box.mean(0).astype(np.int64)
 
-        exampler_box_size = np.array([box_wh.max(), box_wh.max()], dtype=np.int64)
-        search_box_size = 2 * exampler_box_size
+        exampler_box_size = np.array([box_wh.max() * 1.1, box_wh.max() * 1.1], dtype=np.int64)
 
         exampler_box = np.array([box_center - exampler_box_size/2, box_center + exampler_box_size/2], dtype=np.int64)
-        search_box = np.array([box_center - search_box_size / 2, box_center + search_box_size / 2], dtype=np.int64)
+        search_box = np.array([box_center - exampler_box_size, box_center + exampler_box_size], dtype=np.int64)
 
         im = PIL.Image.fromarray(img[..., ::-1])
 
-        scale = search_box_size / 255
+        scale = exampler_box_size / self.exampler_size
         box_ratio = box_wh[0] / box_wh[1]
-        box_area = np.sqrt(box_wh[0] * box_wh[1]) / scale[0]
+        box_area = np.sqrt(box_wh[0] * box_wh[1] / (scale[0] * scale[1]))
 
-        im_exampler = im.crop(exampler_box.flatten().tolist()).resize((127, 127))
-        im_search = im.crop(search_box.flatten().tolist()).resize((255, 255))
+        im_exampler = im.crop(exampler_box.flatten().tolist()).resize((self.exampler_size, self.exampler_size))
+        im_search = im.crop(search_box.flatten().tolist()).resize((self.search_size, self.search_size))
         exampler = np.array(im_exampler)[..., ::-1]
         search = np.array(im_search)[..., ::-1]
 
         predicted_box, _, predicted_mask = self._predict(exampler, search, box_ratio, box_area)
 
-        predicted_box = scale * predicted_box + box_center[np.newaxis, ...]
+        predicted_box = scale[np.newaxis, ...] * predicted_box + box_center[np.newaxis, ...]
         predicted_box = predicted_box.astype(np.int64)
 
-        predicted_mask[predicted_mask >= self.mask_threshold] = 255
-        predicted_mask[predicted_mask < self.mask_threshold] = 0
+        # predicted_mask[predicted_mask >= self.mask_threshold] = 255
+        # predicted_mask[predicted_mask < self.mask_threshold] = 0
 
         im_predicted_mask = PIL.Image.fromarray(predicted_mask).resize((*exampler_box_size,))
-        #im_predicted_mask.convert('RGB').save('data/tmp1.png')
 
         im_mask = PIL.Image.new('L', im.size)
         # FIXME: Box回帰ずみのものをつかわないようにする
-        im_mask.paste(im_predicted_mask, (*(predicted_box.mean(axis=0) - 63.5 * scale).astype(np.int64),))
-        #im_mask.convert('RGB').save('data/tmp.png')
+        im_mask.paste(
+            im_predicted_mask,
+            (*(predicted_box.mean(axis=0) - self.exampler_size * scale / 2).astype(np.int64),)
+        )
+
+        if debug:
+            im_exampler.convert('RGB').save('exampler.png')
+            im_search.convert('RGB').save('search.png')
+
+            draw = PIL.ImageDraw.Draw(im)
+            draw.rectangle((*predicted_box.flatten(),))
+            im.save('predicted_box.png')
+
+            im_predicted_mask.convert('RGB').save('predicted_mask_patch.png')
+            im_mask.convert('RGB').save('predicted_mask.png')
 
         return predicted_box, np.array(im_mask)
 
@@ -144,10 +156,19 @@ class SiamMask:
 
         boxes[..., :2] = boxes[..., :2] * self.anchors[..., 2:] + self.anchors[..., :2]
         boxes[..., 2:] = boxes[..., 2:] * self.anchors[..., 2:]
+
+        box_ratios = boxes[..., 2] / boxes[..., 3]
+        box_areas = np.sqrt(boxes[..., 2] * boxes[..., 3])
+
         boxes[..., :2] -= boxes[..., 2:] / 2
         boxes[..., 2:] += boxes[..., :2]
 
-        box_idx = np.unravel_index(scores.argmax(), boxes.shape[:-1])
+        def diff(r):
+            return np.maximum(r, 1. / r)
+
+        penalty = np.exp(-(diff(box_ratios / prev_box_ratio) * diff(box_areas / prev_box_area) - 1) * 0.04)
+
+        box_idx = np.unravel_index((scores * penalty).argmax(), boxes.shape[:-1])
         idx = box_idx[:2]
 
         box = boxes[box_idx].reshape((2, 2))

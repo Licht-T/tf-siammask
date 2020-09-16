@@ -47,7 +47,7 @@ class MaskRefinementBlock(tf.keras.Model):
         v = tf.keras.activations.relu(self.conv_v1(v))
         v = tf.keras.activations.relu(self.conv_v2(v))
 
-        return self.conv_post(tf.image.resize(self.add([h, v]), [self.upsample_size, self.upsample_size]))
+        return self.conv_post(tf.image.resize(self.add([h, v]), [self.upsample_size, self.upsample_size], tf.image.ResizeMethod.BICUBIC))
 
 
 class MaskRefinementNet(tf.keras.Model):
