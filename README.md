@@ -32,6 +32,7 @@ box, mask = sm.predict(img, np.array([[214, 61], [315, 196]]), debug=True)
 * [x] Mask refinement network
 * [x] Pre-trained model for Tensorflow 2.0
 * [ ] Training code
+* [ ] Object tracking code
 
 ## Reference
 ```
