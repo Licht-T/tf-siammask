@@ -28,6 +28,8 @@ import PIL.ImageDraw
 
 from .model import BaseNet, MaskRefinementNet
 
+VERSION = 'v1.0.0'
+
 
 class SiamMask:
     def __init__(self):
@@ -93,8 +95,23 @@ class SiamMask:
 
         self.anchors = np.concatenate([xy_grid, anchors_wh], -1)
 
-    def load_weights(self, base_model_fp: str, mask_refinement_model_fp: str):
+    def load_weights(self, base_model_fp: str = None, mask_refinement_model_fp: str = None):
+        if base_model_fp is None:
+            base_model_fp = tf.keras.utils.get_file(
+                f'base_model_{VERSION}.h5',
+                f'https://github.com/Licht-T/tf-siammask/releases/download/{VERSION}/siammask_base_model.h5',
+                cache_subdir='tf-siammask'
+            )
+
         self.base_model.load_weights(base_model_fp)
+
+        if mask_refinement_model_fp is None:
+            mask_refinement_model_fp = tf.keras.utils.get_file(
+                f'mask_refinement_model_{VERSION}.h5',
+                f'https://github.com/Licht-T/tf-siammask/releases/download/{VERSION}/siammask_mask_refinement_model.h5',
+                cache_subdir='tf-siammask'
+            )
+
         self.mask_refinement_model.load_weights(mask_refinement_model_fp)
 
     def predict(self, img: np.ndarray, box: np.ndarray, debug=False):
