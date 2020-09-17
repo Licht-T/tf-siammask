@@ -28,10 +28,10 @@ box, mask = sm.predict(img_prev, box_prev, img_next, debug=True)
 | |  Previous frame  |  Next frame |
 | ---- | ---- | ---- |
 | File name | `./data/cat1_with_box.jpg` | `./data/cat2.jpg` |
-| Image |  ![cat](./data/cat1_with_box.jpg)  |  ![cat](./data/cat2.jpg)  |
+| Image |  ![cat](https://raw.githubusercontent.com/Licht-T/tf-siammask/master/data/cat1_with_box.jpg)  |  ![cat](https://raw.githubusercontent.com/Licht-T/tf-siammask/master/data/cat2.jpg)  |
 
 ### Predicted mask for `./data/cat2.jpg`
-![mask](./data/predicted_mask.png)
+![mask](https://raw.githubusercontent.com/Licht-T/tf-siammask/master/data/predicted_mask.png)
 
 ## TODO
 * [x] Bounding-box regression
