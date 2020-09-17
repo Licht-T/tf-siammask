@@ -1,5 +1,12 @@
 # tf-siammask
+[![PyPI version](https://badge.fury.io/py/tf-siammask.svg)](https://badge.fury.io/py/tf-siammask)
+
 [SiamMask](https://github.com/foolwood/SiamMask) implementation with Tensorflow 2.
+
+## Install
+```bash
+pip install tf-siammask
+```
 
 ## Example
 ```python
