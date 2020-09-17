@@ -1,5 +1,5 @@
 # tf-siammask
-[SiamMask](https://github.com/foolwood/SiamMask) implementation with Tensorflow 2.0.
+[SiamMask](https://github.com/foolwood/SiamMask) implementation with Tensorflow 2.
 
 ## Example
 ```python
