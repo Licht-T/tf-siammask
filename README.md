@@ -1,5 +1,6 @@
 # tf-siammask
 [![PyPI version](https://badge.fury.io/py/tf-siammask.svg)](https://badge.fury.io/py/tf-siammask)
+![Upload Python Package](https://github.com/Licht-T/tf-siammask/workflows/Upload%20Python%20Package/badge.svg)
 
 [SiamMask](https://github.com/foolwood/SiamMask) implementation with Tensorflow 2.
 
