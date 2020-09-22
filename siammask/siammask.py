@@ -28,7 +28,7 @@ import PIL.ImageDraw
 
 from .model import BaseNet, MaskRefinementNet
 
-VERSION = 'v1.0.3'
+VERSION = 'v1.0.4'
 
 
 class SiamMask:
